@@ -173,11 +173,12 @@ class Detector(threading.Thread):
 
         image_path = self.storage.save_image(frame, prefix="bird")
 
-        threading.Thread(
-            target=self.telegram.send_photo,
-            args=(image_path, "Птица у кормушки!"),
-            daemon=True,
-        ).start()
+        if self.cfg.enable_posts:
+            threading.Thread(
+                target=self.telegram.send_photo,
+                args=(image_path, "У нас гости!"),
+                daemon=True,
+            ).start()
 
         threading.Thread(target=self.sound.playsound, daemon=True).start()
 
@@ -198,11 +199,12 @@ class Detector(threading.Thread):
             path = self.storage.save_video(frames, prefix="birdclip")
             logger.info(f"Clip saved: {path}")
 
-            threading.Thread(
-                target=self.telegram.send_video,
-                args=(path,),
-                daemon=True,
-            ).start()
+            if self.cfg.enable_posts:
+                threading.Thread(
+                    target=self.telegram.send_video,
+                    args=(path,),
+                    daemon=True,
+                ).start()
         finally:
             self.is_recording = False
 

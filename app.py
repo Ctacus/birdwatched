@@ -29,7 +29,7 @@ class BirdWatcherApp:
 
         self.camera  =  RTSPCameraCapture(
             cfg,
-            rtsp_url="rtsp://192.168.1.78:8080/h264.sdp",
+            rtsp_url=cfg.rtsp_url,
             reconnect_delay=3.0,
             max_reconnect_attempts=-1,  # Infinite retries
             use_ffmpeg_backend=False,    # Better RTSP support
@@ -44,7 +44,7 @@ class BirdWatcherApp:
         # )
 
         self.restreamer = FFmpegStreamer(
-            rtsp_url="rtsp://192.168.1.78:8080/h264.sdp",
+            rtsp_url=cfg.rtsp_url,
             rtmps_url= f"{cfg.telegram_rtmp_server_url}{cfg.telegram_rtmp_stream_key}"
         )
 
@@ -52,8 +52,10 @@ class BirdWatcherApp:
 
     def start(self):
         self.camera.start()
-        self.restreamer.start()
-        self.detector.start()
+        if self.cfg.enable_stream:
+            self.restreamer.start()
+        if self.cfg.enable_detector:
+            self.detector.start()
         logger.info("MVP running. Ctrl+C to stop.")
         try:
             while True:
@@ -61,6 +63,7 @@ class BirdWatcherApp:
         except KeyboardInterrupt:
             logger.info("Stopping...")
             self.camera.stop()
-            self.restreamer.stop()
+            if self.cfg.enable_stream:
+                self.restreamer.stop()
             time.sleep(0.5)
 

@@ -41,6 +41,10 @@ class AppConfig:
     cooldown_seconds: int = 10
     telegram_rtmp_stream_key: str = ""
     telegram_rtmp_server_url: str = "rtmps://dc4-1.rtmp.t.me/s/"
+    rtsp_url: str = ""
+    enable_stream: bool = True
+    enable_detector: bool = True
+    enable_posts: bool = True
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -60,6 +64,10 @@ class AppConfig:
             fps=int(os.getenv("FPS", "15")),
             telegram_rtmp_stream_key=os.getenv("TELEGRAM_RTMP_STREAM_KEY", ""),
             telegram_rtmp_server_url=os.getenv("TELEGRAM_RTMP_SERVER_URL", "rtmps://dc4-1.rtmp.t.me/s/"),
+            rtsp_url=os.getenv("RTSP_URL", ""),
+            enable_stream=bool(int(os.getenv("ENABLE_STREAM", "1"))),
+            enable_detector=bool(int(os.getenv("ENABLE_DETECTOR", "1"))),
+            enable_posts=bool(int(os.getenv("ENABLE_POSTS", "1"))),
         )
 
     @staticmethod
