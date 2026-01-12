@@ -1,7 +1,7 @@
 """
 Application wiring for the bird watcher MVP.
 """
-
+import asyncio
 import logging
 import os
 import time
@@ -25,6 +25,8 @@ class BirdWatcherApp:
         self.storage = StorageManager(cfg)
         self.telegram = TelegramNotifier(cfg)
         self.sound = SoundNotifier(cfg)
+        self.running = True
+        self.controller = None
         # self.camera = CameraCapture(cfg)
 
         self.camera  =  RTSPCameraCapture(
@@ -51,19 +53,29 @@ class BirdWatcherApp:
         self.detector = Detector(cfg, self.camera, self.storage, self.telegram, self.sound)
 
     def start(self):
+
+        # asyncio.run(self.controller.start())
         self.camera.start()
         if self.cfg.enable_stream:
             self.restreamer.start()
         if self.cfg.enable_detector:
             self.detector.start()
+
+        # import bot_controller
+        # self.controller = bot_controller.BotController(self.cfg, self)
         logger.info("MVP running. Ctrl+C to stop.")
         try:
-            while True:
+            while self.running:
                 time.sleep(1)
         except KeyboardInterrupt:
-            logger.info("Stopping...")
-            self.camera.stop()
-            if self.cfg.enable_stream:
-                self.restreamer.stop()
-            time.sleep(0.5)
+            self.stop()
+        logger.info("App stopped.")
+
+    def stop(self):
+        self.running = False
+        logger.info("Stopping...")
+        self.camera.stop()
+        if self.cfg.enable_stream:
+            self.restreamer.stop()
+        time.sleep(0.5)
 
