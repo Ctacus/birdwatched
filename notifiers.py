@@ -8,6 +8,10 @@ from typing import Optional
 import requests
 import simpleaudio as sa
 
+# import asyncio
+# from play_sounds import play_file_async
+from playsound3 import playsound
+
 from config import AppConfig
 
 logger = logging.getLogger(__name__)
@@ -67,3 +71,10 @@ class SoundNotifier:
             logger.error(f"Failed to play sound: {e}", exc_info=True)
             return False
 
+    def playsound(self) -> bool:
+        try:
+            playsound(sound=self.cfg.alert_sound_path, block=False)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to play sound: {e}", exc_info=True)
+            return False

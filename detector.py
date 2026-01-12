@@ -179,8 +179,7 @@ class Detector(threading.Thread):
             daemon=True,
         ).start()
 
-        # NOTE: отключено из-за подвисания, вернуть при необходимости
-        # threading.Thread(target=self.sound.play_async, daemon=True).start()
+        threading.Thread(target=self.sound.playsound, daemon=True).start()
 
         if self.is_recording:
             logger.warning("Clip already recording, skip new clip")
