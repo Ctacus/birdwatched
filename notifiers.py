@@ -48,8 +48,8 @@ class TelegramNotifier:
             url = f"https://api.telegram.org/bot{self.cfg.telegram_bot_token}/sendVideo"
             with open(video_path, "rb") as vf:
                 files = {"video": vf}
-                data = {"chat_id": self.cfg.telegram_chat_id, "caption": caption or "Клип с кормушки"}
-                resp = requests.post(url, data=data, files=files, timeout=30)
+                data = {"chat_id": self.cfg.telegram_chat_id, "caption": caption or "Птичка!"}
+                resp = requests.post(url, data=data, files=files, timeout=120)
                 resp.raise_for_status()
                 logger.info("Clip sent")
                 return True

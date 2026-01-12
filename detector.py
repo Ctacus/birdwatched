@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class ClipBuffer:
     def __init__(self, fps: int, clip_seconds: int):
         self.max_clip_length = clip_seconds * fps
-        self.buffer: Deque[np.ndarray] = collections.deque(maxlen=self.max_clip_length * 2)
+        self.buffer: Deque[np.ndarray] = collections.deque(maxlen=self.max_clip_length + 120)
         self.motion_flags: Deque[float] = collections.deque(maxlen=self.buffer.maxlen)
         if self.buffer.maxlen <= self.max_clip_length:
             raise Error("Buffer must be at least 1 frame wider than clip")
