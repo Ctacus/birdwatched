@@ -19,10 +19,10 @@ def setup_logging(level: str = "INFO"):
     log_level = getattr(logging, level.upper(), logging.INFO)
     logging.basicConfig(
         level=log_level,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        format='%(asctime)s.%(msecs)03d - %(levelname)s - %(name)-9s -  %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
-    logging.info(f"log_level: ${logging.getLevelName(log_level)}")
+    logging.info(f"log_level: {logging.getLevelName(log_level)}")
 
 
 @dataclass

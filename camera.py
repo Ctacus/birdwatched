@@ -57,6 +57,7 @@ class CameraCapture(threading.Thread):
                 return None
             # Pop the oldest frame (first in, first out)
             frame = self.frame_buffer.popleft()
+            logger.debug(f"Frame popped from buffer, size={len(self.frame_buffer)}")
         # print("[camera] get_frame: returned frame, buffer size=", len(self.frame_buffer))
         return frame
 

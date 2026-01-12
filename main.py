@@ -12,11 +12,12 @@ from config import AppConfig, setup_logging
 
 
 def main():
+    cfg = AppConfig.from_env()
+
     # Setup logging with level from environment or default to INFO
     log_level = os.getenv("LOG_LEVEL", "INFO")
     setup_logging(log_level)
-    
-    cfg = AppConfig.from_env()
+
     app = BirdWatcherApp(cfg)
     app.start()
 

@@ -77,17 +77,18 @@ class Detector(threading.Thread):
         last_counter = 0
         try:
             while True:
+                time.sleep(1.0 / self.cfg.fps)
+                logger.debug("Fetching frame...")
                 frame = self.camera.get_frame()
-
                 if frame is None:
-                    time.sleep(0.05)
+                    logger.debug("No frame available")
+                    time.sleep(1.0 / self.cfg.fps)
                     continue
                 self.buffer.append(frame)
                 movement = self._detect_movement(frame)
                 if self.state !=last_state or movement != last_movement or last_counter != self.trigger_counter:
                     logger.debug(f"state={self.state} movement={movement} counter={self.trigger_counter}")
                 last_state, last_movement, last_counter = self.state, movement, self.trigger_counter
-                time.sleep(0.2)
                 if self.state == self.STATE_IDLE:
                     self._handle_idle(movement, frame)
                     continue
@@ -102,10 +103,9 @@ class Detector(threading.Thread):
                     self._handle_cooldown()
                     continue
 
-                time.sleep(1.0 / self.cfg.fps)
         except Exception as e:
             logger.error(f"Detector error: {e}", exc_info=True)
-            time.sleep(0.5)
+            time.sleep(1)
 
     def _handle_idle(self, movement: bool, frame: np.ndarray):
         if movement:
@@ -153,17 +153,13 @@ class Detector(threading.Thread):
         try:
             target_frames = self.cfg.clip_seconds * self.cfg.fps
             with self.lock:
+                # Wait for remaining frames needed to reach target length
+                while len(self.buffer) < target_frames:
+                    logger.debug(f"Not enough frames in detector buffer ({len(self.buffer)})/{target_frames}")
+                    time.sleep(0.5)  # Brief wait if no frame available
                 frames = list(self.buffer)[-target_frames:]
+                logger.info(f"clearing buffer (taking {len(frames)} out of {len(self.buffer)})")
                 self.buffer.clear()
-
-            # Collect remaining frames needed to reach target length
-            while len(frames) < target_frames:
-                f = self.camera.get_frame()
-                if f is not None:
-                    frames.append(f)
-                else:
-                    time.sleep(0.01)  # Brief wait if no frame available
-
             path = self.storage.save_video(frames, prefix="birdclip")
             logger.info(f"Clip saved: {path}")
 
