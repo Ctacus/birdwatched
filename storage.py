@@ -35,6 +35,7 @@ class StorageManager:
         fname = f"{prefix}_{self._timestamp()}.mp4"
         path = os.path.join(self.cfg.video_dir, fname)
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        # fourcc = cv2.VideoWriter_fourcc(*"avc1")  # или x264 или h264 -- огромный битрейт и не заливается в телегу -- отваливается по таймауту
         writer = cv2.VideoWriter(path, fourcc, self.cfg.fps, (w, h))
         for f in frames:
             writer.write(f)
