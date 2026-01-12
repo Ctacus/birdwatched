@@ -78,7 +78,7 @@ class Detector(threading.Thread):
         try:
             while True:
                 time.sleep(1.0 / self.cfg.fps)
-                logger.debug("Fetching frame...")
+                # logger.debug("Fetching frame...")
                 frame = self.camera.get_frame()
                 if frame is None:
                     logger.debug("No frame available")

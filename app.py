@@ -10,6 +10,7 @@ from camera import CameraCapture
 from config import AppConfig, setup_logging
 from detector import Detector
 from notifiers import SoundNotifier, TelegramNotifier
+from plain_restreamer import FFmpegStreamer
 from restreamer2 import TelegramRTMPRestreamer2
 from storage import StorageManager
 from rtsp_camera import RTSPCameraCapture
@@ -24,7 +25,7 @@ class BirdWatcherApp:
         self.storage = StorageManager(cfg)
         self.telegram = TelegramNotifier(cfg)
         self.sound = SoundNotifier(cfg)
-        # self.camera = CameraCapture(cfg)
+        self.camera = CameraCapture(cfg)
 
         self.camera  =  RTSPCameraCapture(
             cfg,
@@ -35,11 +36,16 @@ class BirdWatcherApp:
             rtsp_transport="tcp"        # or "udp" for lower latency (less reliable)
         )
 
-        self.restreamer = TelegramRTMPRestreamer(
-            cfg=cfg,
-            camera_source=self.camera,
-            bitrate="2000k",
-            preset="veryfast"
+        # self.restreamer = TelegramRTMPRestreamer(
+        #     cfg=cfg,
+        #     camera_source=self.camera,
+        #     bitrate="2000k",
+        #     preset="veryfast"
+        # )
+
+        self.restreamer = FFmpegStreamer(
+            rtsp_url="rtsp://192.168.1.78:8080/h264.sdp",
+            rtmps_url= f"{cfg.telegram_rtmp_server_url}{cfg.telegram_rtmp_stream_key}"
         )
 
         self.detector = Detector(cfg, self.camera, self.storage, self.telegram, self.sound)
@@ -47,7 +53,7 @@ class BirdWatcherApp:
     def start(self):
         self.camera.start()
         self.restreamer.start()
-        # self.detector.start()
+        self.detector.start()
         logger.info("MVP running. Ctrl+C to stop.")
         try:
             while True:
@@ -55,5 +61,6 @@ class BirdWatcherApp:
         except KeyboardInterrupt:
             logger.info("Stopping...")
             self.camera.stop()
+            self.restreamer.stop()
             time.sleep(0.5)
 

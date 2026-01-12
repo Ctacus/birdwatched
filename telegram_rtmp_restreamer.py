@@ -51,7 +51,11 @@ class TelegramRTMPRestreamer(threading.Thread):
             "-tune", "zerolatency",
             "-pix_fmt", "yuv420p",
             "-b:v", self.bitrate,
+            "-g", str(fps),              # Keyframe every 1 second (faster start)
+            "-keyint_min", str(fps),     # Min keyframe interval
+            "-force_key_frames", f"expr:gte(t,n_forced*1)",  # Force keyframe every 1s
             "-f", "flv",
+            "-flvflags", "no_duration_filesize",
             self.rtmp_url,
         ]
     
@@ -59,12 +63,19 @@ class TelegramRTMPRestreamer(threading.Thread):
         """Main streaming loop."""
         logger.info(f"Starting stream to {self.rtmp_url}")
         
-        # Wait for first frame
+        # Discard stale frames - consume what's cached
+        for _ in range(10):
+            f = self.camera_source.get_frame()
+            if f is not None:
+                break
+            time.sleep(0.05)
+        
+        # Get fresh frame
         frame = None
         while frame is None:
             frame = self.camera_source.get_frame()
             if frame is None:
-                time.sleep(0.5)
+                time.sleep(0.05)
         
         height, width = frame.shape[:2]
         fps = self.cfg.fps
@@ -90,26 +101,33 @@ class TelegramRTMPRestreamer(threading.Thread):
         stderr_thread.start()
         
         self.running = True
-        frame_time = 1.0 / fps / 2
+        frame_interval = 1.0 / fps
+        next_frame_time = time.monotonic()
+        last_frame = frame  # Keep last valid frame
         
         while self.running:
-            frame = self.camera_source.get_frame()
-            if frame is None:
-                time.sleep(0.01)
-                continue
+            # Wait until it's time for the next frame
+            now = time.monotonic()
+            sleep_time = next_frame_time - now
+            if sleep_time > 0:
+                time.sleep(sleep_time)
             
-            # Resize if needed
-            if frame.shape[:2] != (height, width):
-                frame = cv2.resize(frame, (width, height))
+            # Get latest frame from camera
+            new_frame = self.camera_source.get_frame()
+            if new_frame is not None:
+                # Resize if needed
+                if new_frame.shape[:2] != (height, width):
+                    new_frame = cv2.resize(new_frame, (width, height))
+                last_frame = new_frame
             
-            # Write to FFmpeg
+            # Always write a frame at the expected interval (repeat last if no new)
             try:
-                self.ffmpeg_process.stdin.write(frame.tobytes())
+                self.ffmpeg_process.stdin.write(last_frame.tobytes())
             except BrokenPipeError:
                 logger.error("FFmpeg pipe broken")
                 break
             
-            time.sleep(frame_time)
+            next_frame_time += frame_interval
         
         # Cleanup
         if self.ffmpeg_process:
@@ -120,3 +138,5 @@ class TelegramRTMPRestreamer(threading.Thread):
     def stop(self):
         """Stop the streaming thread."""
         self.running = False
+
+
