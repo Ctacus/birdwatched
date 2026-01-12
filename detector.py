@@ -44,6 +44,23 @@ class ClipBuffer:
             total_motion = self.window_totals[-1] + motion - self.motion_flags[dropped_motion_idx]
             self.window_totals.append(total_motion)
 
+        self.trim_start(2)
+
+    def trim_start(self, frame_cnt: int, threshold: float=0.1):
+        for _ in range(frame_cnt):
+            if len(self.buffer) == 0:
+                return
+            motion_level = self.motion_flags[0]
+            if motion_level >= threshold:
+                return
+            self.buffer.popleft()
+            self.motion_flags.popleft()
+            if len(self.window_totals) > 1:
+                self.window_totals.popleft()
+            else:
+                self.window_totals[0] -= motion_level  # на будущее, пока бессмысленно
+
+
     def motion_percent(self) -> float:
         return max(self.window_totals) / self.max_clip_length
 
