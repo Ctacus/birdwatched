@@ -2,12 +2,15 @@
 Notification utilities: Telegram and sound alerts.
 """
 
+import logging
 from typing import Optional
 
 import requests
 import simpleaudio as sa
 
 from config import AppConfig
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramNotifier:
@@ -16,7 +19,7 @@ class TelegramNotifier:
 
     def send_photo(self, photo_path: str, caption: Optional[str] = None) -> bool:
         if not self.cfg.telegram_bot_token or not self.cfg.telegram_chat_id:
-            print("[telegram] token/chat_id not set, skipping send.")
+            logger.warning("Token/chat_id not set, skipping send.")
             return False
         url = f"https://api.telegram.org/bot{self.cfg.telegram_bot_token}/sendPhoto"
         with open(photo_path, "rb") as f:
@@ -27,15 +30,15 @@ class TelegramNotifier:
             try:
                 resp = requests.post(url, data=data, files=files, timeout=15)
                 resp.raise_for_status()
-                print("[telegram] photo sent:", photo_path)
+                logger.info(f"Photo sent: {photo_path}")
                 return True
             except Exception as e:
-                print("[telegram] failed to send:", e)
+                logger.error(f"Failed to send photo: {e}", exc_info=True)
                 return False
 
     def send_video(self, video_path: str, caption: Optional[str] = None) -> bool:
         if not self.cfg.telegram_bot_token or not self.cfg.telegram_chat_id:
-            print("[telegram] token/chat_id not set, skipping send.")
+            logger.warning("Token/chat_id not set, skipping send.")
             return False
         try:
             url = f"https://api.telegram.org/bot{self.cfg.telegram_bot_token}/sendVideo"
@@ -44,10 +47,10 @@ class TelegramNotifier:
                 data = {"chat_id": self.cfg.telegram_chat_id, "caption": caption or "Клип с кормушки"}
                 resp = requests.post(url, data=data, files=files, timeout=30)
                 resp.raise_for_status()
-                print("[telegram] clip sent")
+                logger.info("Clip sent")
                 return True
         except Exception as e:
-            print("[telegram] failed to send clip:", e)
+            logger.error(f"Failed to send clip: {e}", exc_info=True)
             return False
 
 
@@ -61,6 +64,6 @@ class SoundNotifier:
             wave_obj.play()
             return True
         except Exception as e:
-            print("[sound] failed to play:", e)
+            logger.error(f"Failed to play sound: {e}", exc_info=True)
             return False
 

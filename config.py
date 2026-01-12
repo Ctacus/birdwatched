@@ -2,10 +2,27 @@
 Configuration utilities for the bird watcher application.
 """
 
+import logging
 import os
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
+
+
+def setup_logging(level: str = "INFO"):
+    """
+    Configure logging with timestamps and levels.
+    
+    Args:
+        level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
+    log_level = getattr(logging, level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    logging.info(f"log_level: ${logging.getLevelName(log_level)}")
 
 
 @dataclass
@@ -35,6 +52,7 @@ class AppConfig:
             min_contour_area=int(os.getenv("MIN_CONTOUR_AREA", "400")),
             detection_frames_required=int(os.getenv("DETECTION_FRAMES_REQUIRED", "3")),
             clip_seconds=int(os.getenv("CLIP_SECONDS", "6")),
+            cooldown_seconds=int(os.getenv("COOLDOWN_SECONDS", "20")),
             fps=int(os.getenv("FPS", "15")),
         )
 

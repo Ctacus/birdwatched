@@ -3,6 +3,7 @@ Movement detector with simple state machine.
 """
 
 import collections
+import logging
 import threading
 import time
 from typing import Deque
@@ -14,6 +15,8 @@ from camera import CameraCapture
 from config import AppConfig
 from notifiers import SoundNotifier, TelegramNotifier
 from storage import StorageManager
+
+logger = logging.getLogger(__name__)
 
 
 class Detector(threading.Thread):
@@ -56,17 +59,11 @@ class Detector(threading.Thread):
 
     # --------------------------
     def _detect_movement(self, frame: np.ndarray) -> bool:
-        # print("|", end="")
         small = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-        # print("|", end="")
         mask = self.bg.apply(small)
-        # print("|", end="")
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        # print("|", end="")
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        # print("|", end="")
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        # print("|", end="")
         for c in contours:
             if cv2.contourArea(c) >= self.cfg.min_contour_area:
                 return True
@@ -74,25 +71,21 @@ class Detector(threading.Thread):
 
     # --------------------------
     def run(self):
-        print("[detector] started")
+        logger.info("Detector started")
         last_state = None
         last_movement = False
         last_counter = 0
         try:
             while True:
-                # print("[detector] fetching frame...")
                 frame = self.camera.get_frame()
 
                 if frame is None:
                     time.sleep(0.05)
                     continue
-                # print("[detector] frame fetched...")
                 self.buffer.append(frame)
-                # print("[detector] buffer appended", end="")
                 movement = self._detect_movement(frame)
-                # print()
-                if self.state !=last_state or movement != last_movement:
-                    print(f"[detector] state={self.state} movement={movement} counter={self.trigger_counter}")
+                if self.state !=last_state or movement != last_movement or last_counter != self.trigger_counter:
+                    logger.debug(f"state={self.state} movement={movement} counter={self.trigger_counter}")
                 last_state, last_movement, last_counter = self.state, movement, self.trigger_counter
                 time.sleep(0.2)
                 if self.state == self.STATE_IDLE:
@@ -100,7 +93,7 @@ class Detector(threading.Thread):
                     continue
 
                 if self.state == self.STATE_TRIGGERED:
-                    print("[detector] cooldown started")
+                    logger.info("Cooldown started")
                     self.state = self.STATE_COOLDOWN
                     self.cooldown_start = time.time()
                     continue
@@ -111,10 +104,7 @@ class Detector(threading.Thread):
 
                 time.sleep(1.0 / self.cfg.fps)
         except Exception as e:
-            print("[detector] ERROR:", e)
-            import traceback
-
-            traceback.print_exc()
+            logger.error(f"Detector error: {e}", exc_info=True)
             time.sleep(0.5)
 
     def _handle_idle(self, movement: bool, frame: np.ndarray):
@@ -125,19 +115,18 @@ class Detector(threading.Thread):
 
         if self.trigger_counter >= self.cfg.detection_frames_required:
             self._trigger_event(frame)
-            print("[detector] TRIGGERED!")
             self.state = self.STATE_TRIGGERED
             self.trigger_counter = 0
 
     def _handle_cooldown(self):
         if time.time() - self.cooldown_start >= self.cfg.cooldown_seconds:
-            print("[detector] cooldown ended")
+            logger.info("Cooldown ended")
             self.state = self.STATE_IDLE
             self.trigger_counter = 0
 
     # --------------------------
     def _trigger_event(self, frame: np.ndarray):
-        print("[detector] BIRD EVENT TRIGGERED")
+        logger.info("BIRD EVENT TRIGGERED")
 
         image_path = self.storage.save_image(frame, prefix="bird")
 
@@ -151,34 +140,32 @@ class Detector(threading.Thread):
         # threading.Thread(target=self.sound.play_async, daemon=True).start()
 
         if self.is_recording:
-            print("[detector] clip already recording, skip new clip")
+            logger.warning("Clip already recording, skip new clip")
             return
 
         threading.Thread(target=self._write_clip, daemon=True).start()
 
     # --------------------------
     def _write_clip(self):
-        print("[detector] recording clip...")
+        logger.info("Recording clip...")
 
         self.is_recording = True
         try:
             target_frames = self.cfg.clip_seconds * self.cfg.fps
             with self.lock:
-                # keep only the most recent frames up to the target clip length
                 frames = list(self.buffer)[-target_frames:]
-                # start fresh for the next potential trigger while we record this one
                 self.buffer.clear()
 
-            # capture only the remaining frames needed to reach target length
-            remaining = max(0, target_frames - len(frames))
-            for _ in range(remaining):
+            # Collect remaining frames needed to reach target length
+            while len(frames) < target_frames:
                 f = self.camera.get_frame()
                 if f is not None:
                     frames.append(f)
-                time.sleep(1.0 / self.cfg.fps)
+                else:
+                    time.sleep(0.01)  # Brief wait if no frame available
 
             path = self.storage.save_video(frames, prefix="birdclip")
-            print("[detector] clip saved:", path)
+            logger.info(f"Clip saved: {path}")
 
             threading.Thread(
                 target=self.telegram.send_video,

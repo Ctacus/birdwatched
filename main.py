@@ -5,11 +5,17 @@ MVP: монитор кормушки — детекция (MOG2/KNN), сохра
 Настройки через environment variables или .env (см. пример ниже).
 """
 
+import os
+
 from app import BirdWatcherApp
-from config import AppConfig
+from config import AppConfig, setup_logging
 
 
 def main():
+    # Setup logging with level from environment or default to INFO
+    log_level = os.getenv("LOG_LEVEL", "INFO")
+    setup_logging(log_level)
+    
     cfg = AppConfig.from_env()
     app = BirdWatcherApp(cfg)
     app.start()

@@ -2,13 +2,17 @@
 Application wiring for the bird watcher MVP.
 """
 
+import logging
+import os
 import time
 
 from camera import CameraCapture
-from config import AppConfig
+from config import AppConfig, setup_logging
 from detector import Detector
 from notifiers import SoundNotifier, TelegramNotifier
 from storage import StorageManager
+
+logger = logging.getLogger(__name__)
 
 
 class BirdWatcherApp:
@@ -23,12 +27,12 @@ class BirdWatcherApp:
     def start(self):
         self.camera.start()
         self.detector.start()
-        print("MVP running. Ctrl+C to stop.")
+        logger.info("MVP running. Ctrl+C to stop.")
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("Stopping...")
+            logger.info("Stopping...")
             self.camera.stop()
             time.sleep(0.5)
 
