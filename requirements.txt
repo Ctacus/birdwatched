@@ -1,0 +1,8 @@
+opencv-python
+requests
+numpy
+python-dotenv
+simpleaudio
+
+torch
+torchvision
