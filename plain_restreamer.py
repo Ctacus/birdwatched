@@ -9,7 +9,7 @@ class FFmpegStreamer:
         self,
         rtsp_url: str,
         rtmps_url: str,
-        crf: int = 37,
+        crf: int = 38,
 
         preset: str = "veryfast",
         ffmpeg_path: str = "ffmpeg",
@@ -32,7 +32,7 @@ class FFmpegStreamer:
             "-i", self.rtsp_url,
             "-c:v", "libx264",
             "-preset", self.preset,
-            "-crf", "37",
+            "-crf", str(self.crf),
             "-f", "flv",
             self.rtmps_url,
         ]

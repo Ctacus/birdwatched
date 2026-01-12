@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 from typing import Deque
+from xmlrpc.client import Error
 
 import cv2
 import numpy as np
@@ -17,6 +18,44 @@ from notifiers import SoundNotifier, TelegramNotifier
 from storage import StorageManager
 
 logger = logging.getLogger(__name__)
+
+class ClipBuffer:
+    def __init__(self, fps: int, clip_seconds: int):
+        self.max_clip_length = clip_seconds * fps
+        self.buffer: Deque[np.ndarray] = collections.deque(maxlen=self.max_clip_length * 2)
+        self.motion_flags: Deque[float] = collections.deque(maxlen=self.buffer.maxlen)
+        if self.buffer.maxlen <= self.max_clip_length:
+            raise Error("Buffer must be at least 1 frame wider than clip")
+        self.window_totals: Deque[float] = collections.deque(maxlen=self.buffer.maxlen - self.max_clip_length + 1)
+        self.window_totals.append(0) # initial window total
+
+
+
+    def append(self, frame: np.ndarray, motion: float):
+        if motion > 1 or motion < 0:
+            logger.warning(f"Incorrect motion value: {motion}! (expected in range [0;1])")
+            motion = 0
+        self.buffer.append(frame)
+        self.motion_flags.append(motion)
+        if len(self.buffer) <= self.max_clip_length: # initial windows accumulation
+            self.window_totals[0] += motion
+        else:
+            dropped_motion_idx = -self.max_clip_length - 1
+            total_motion = self.window_totals[-1] + motion - self.motion_flags[dropped_motion_idx]
+            self.window_totals.append(total_motion)
+
+    def motion_percent(self) -> float:
+        return max(self.window_totals) / self.max_clip_length
+
+    def is_ready(self) -> bool:
+        return len(self.buffer) == self.buffer.maxlen
+
+    def get_clip(self):
+        best_windows_motion = max(self.window_totals)
+        idx = self.window_totals.index(best_windows_motion)
+        return list(self.buffer)[idx:idx + self.max_clip_length]
+
+
 
 
 class Detector(threading.Thread):
@@ -52,7 +91,8 @@ class Detector(threading.Thread):
 
         self.state = self.STATE_IDLE
         self.trigger_counter = 0
-        self.buffer: Deque[np.ndarray] = collections.deque(maxlen=self.cfg.clip_seconds * self.cfg.fps)
+        # self.buffer: Deque[np.ndarray] = collections.deque(maxlen=self.cfg.clip_seconds * self.cfg.fps)
+        self.buffer: ClipBuffer = ClipBuffer(self.cfg.fps, self.cfg.clip_seconds)
         self.lock = threading.Lock()
         self.cooldown_start = 0.0
         self.is_recording = False
@@ -82,10 +122,10 @@ class Detector(threading.Thread):
                 frame = self.camera.get_frame()
                 if frame is None:
                     logger.debug("No frame available")
-                    time.sleep(1.0 / self.cfg.fps)
+                    time.sleep(1.0 / self.cfg.fps / 2)
                     continue
-                self.buffer.append(frame)
                 movement = self._detect_movement(frame)
+                self.buffer.append(frame, movement)
                 if self.state !=last_state or movement != last_movement or last_counter != self.trigger_counter:
                     logger.debug(f"state={self.state} movement={movement} counter={self.trigger_counter}")
                 last_state, last_movement, last_counter = self.state, movement, self.trigger_counter
@@ -94,7 +134,7 @@ class Detector(threading.Thread):
                     continue
 
                 if self.state == self.STATE_TRIGGERED:
-                    logger.info("Cooldown started")
+                    logger.info(f"Cooldown started for {self.cfg.cooldown_seconds} seconds")
                     self.state = self.STATE_COOLDOWN
                     self.cooldown_start = time.time()
                     continue
@@ -113,10 +153,13 @@ class Detector(threading.Thread):
         else:
             self.trigger_counter = max(0, self.trigger_counter - 1)
 
-        if self.trigger_counter >= self.cfg.detection_frames_required:
-            self._trigger_event(frame)
-            self.state = self.STATE_TRIGGERED
-            self.trigger_counter = 0
+        if self.trigger_counter >= self.cfg.detection_frames_required and self.buffer.is_ready():
+            motion_pct = self.buffer.motion_percent()
+            if motion_pct >= self.cfg.movement_level_required:
+                logging.info(f"Motion detected, level: {motion_pct}")
+                self._trigger_event(frame)
+                self.state = self.STATE_TRIGGERED
+                self.trigger_counter = 0
 
     def _handle_cooldown(self):
         if time.time() - self.cooldown_start >= self.cfg.cooldown_seconds:
@@ -151,15 +194,8 @@ class Detector(threading.Thread):
 
         self.is_recording = True
         try:
-            target_frames = self.cfg.clip_seconds * self.cfg.fps
-            with self.lock:
-                # Wait for remaining frames needed to reach target length
-                while len(self.buffer) < target_frames:
-                    logger.debug(f"Not enough frames in detector buffer ({len(self.buffer)})/{target_frames}")
-                    time.sleep(0.5)  # Brief wait if no frame available
-                frames = list(self.buffer)[-target_frames:]
-                logger.info(f"clearing buffer (taking {len(frames)} out of {len(self.buffer)})")
-                self.buffer.clear()
+            logger.info(f"Fetching clip from buffer...")
+            frames = self.buffer.get_clip()
             path = self.storage.save_video(frames, prefix="birdclip")
             logger.info(f"Clip saved: {path}")
 

@@ -35,6 +35,7 @@ class AppConfig:
     alert_sound_path: str
     min_contour_area: int
     detection_frames_required: int
+    movement_level_required: float
     clip_seconds: int
     fps: int
     cooldown_seconds: int = 10
@@ -53,6 +54,7 @@ class AppConfig:
             alert_sound_path=os.getenv("ALERT_SOUND_PATH", "alert.wav"),
             min_contour_area=int(os.getenv("MIN_CONTOUR_AREA", "400")),
             detection_frames_required=int(os.getenv("DETECTION_FRAMES_REQUIRED", "3")),
+            movement_level_required=float(os.getenv("MOVEMENT_LEVEL_REQUIRED", "0.5")),
             clip_seconds=int(os.getenv("CLIP_SECONDS", "6")),
             cooldown_seconds=int(os.getenv("COOLDOWN_SECONDS", "20")),
             fps=int(os.getenv("FPS", "15")),
