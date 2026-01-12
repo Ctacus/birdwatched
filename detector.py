@@ -11,7 +11,7 @@ from typing import Deque
 import cv2
 import numpy as np
 
-from camera import CameraCapture
+from base_camera import BaseCameraCapture
 from config import AppConfig
 from notifiers import SoundNotifier, TelegramNotifier
 from storage import StorageManager
@@ -32,7 +32,7 @@ class Detector(threading.Thread):
     def __init__(
         self,
         cfg: AppConfig,
-        camera: CameraCapture,
+        camera: BaseCameraCapture,
         storage: StorageManager,
         telegram: TelegramNotifier,
         sound: SoundNotifier,

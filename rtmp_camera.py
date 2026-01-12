@@ -10,12 +10,13 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from base_camera import BaseCameraCapture
 from config import AppConfig
 
 logger = logging.getLogger(__name__)
 
 
-class RTMPCameraCapture(threading.Thread):
+class RTMPCameraCapture(BaseCameraCapture):
     """
     Camera capture from RTMP video stream with automatic reconnection.
     
@@ -36,8 +37,7 @@ class RTMPCameraCapture(threading.Thread):
             reconnect_delay: Seconds to wait before reconnecting (default: 5.0)
             max_reconnect_attempts: Maximum reconnection attempts (-1 for infinite, default: -1)
         """
-        super().__init__(daemon=True)
-        self.cfg = cfg
+        super().__init__(cfg)
         self.rtmp_url = rtmp_url or (cfg.camera_source if isinstance(cfg.camera_source, str) else None)
         if not self.rtmp_url:
             raise ValueError("RTMP URL must be provided either as rtmp_url parameter or in cfg.camera_source")

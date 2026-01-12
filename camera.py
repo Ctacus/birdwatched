@@ -11,15 +11,15 @@ from typing import Optional, Deque
 import cv2
 import numpy as np
 
+from base_camera import BaseCameraCapture
 from config import AppConfig
 
 logger = logging.getLogger(__name__)
 
 
-class CameraCapture(threading.Thread):
+class CameraCapture(BaseCameraCapture):
     def __init__(self, cfg: AppConfig):
-        super().__init__(daemon=True)
-        self.cfg = cfg
+        super().__init__(cfg)
         self.cap = None
         self.running = False
         # Circular buffer to store frames - max size to prevent memory issues
