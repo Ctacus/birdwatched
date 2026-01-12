@@ -38,6 +38,8 @@ class AppConfig:
     clip_seconds: int
     fps: int
     cooldown_seconds: int = 10
+    telegram_rtmp_stream_key: str = ""
+    telegram_rtmp_server_url: str = "rtmps://dc4-1.rtmp.t.me/s/"
 
     @classmethod
     def from_env(cls) -> "AppConfig":
@@ -54,6 +56,8 @@ class AppConfig:
             clip_seconds=int(os.getenv("CLIP_SECONDS", "6")),
             cooldown_seconds=int(os.getenv("COOLDOWN_SECONDS", "20")),
             fps=int(os.getenv("FPS", "15")),
+            telegram_rtmp_stream_key=os.getenv("TELEGRAM_RTMP_STREAM_KEY", ""),
+            telegram_rtmp_server_url=os.getenv("TELEGRAM_RTMP_SERVER_URL", "rtmps://dc4-1.rtmp.t.me/s/"),
         )
 
     @staticmethod

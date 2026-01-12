@@ -10,8 +10,10 @@ from camera import CameraCapture
 from config import AppConfig, setup_logging
 from detector import Detector
 from notifiers import SoundNotifier, TelegramNotifier
+from restreamer2 import TelegramRTMPRestreamer2
 from storage import StorageManager
 from rtsp_camera import RTSPCameraCapture
+from telegram_rtmp_restreamer import TelegramRTMPRestreamer
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +35,19 @@ class BirdWatcherApp:
             rtsp_transport="tcp"        # or "udp" for lower latency (less reliable)
         )
 
+        self.restreamer = TelegramRTMPRestreamer(
+            cfg=cfg,
+            camera_source=self.camera,
+            bitrate="2000k",
+            preset="veryfast"
+        )
+
         self.detector = Detector(cfg, self.camera, self.storage, self.telegram, self.sound)
 
     def start(self):
         self.camera.start()
-        self.detector.start()
+        self.restreamer.start()
+        # self.detector.start()
         logger.info("MVP running. Ctrl+C to stop.")
         try:
             while True:
