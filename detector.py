@@ -115,32 +115,41 @@ class Detector(threading.Thread):
         last_state = None
         last_movement = False
         last_counter = 0
+        last_loop = 0
         try:
             while True:
-                time.sleep(1.0 / self.cfg.fps)
+                time.sleep(max(1.0 / self.cfg.fps - last_loop, 1.0 / self.cfg.fps /2))
+                start = time.perf_counter()
                 # logger.debug("Fetching frame...")
                 frame = self.camera.get_frame()
+                last_frame_time = self.camera.get_last_frame_time()
                 if frame is None:
                     logger.debug("No frame available")
                     time.sleep(1.0 / self.cfg.fps / 2)
                     continue
                 movement = self._detect_movement(frame)
                 self.buffer.append(frame, movement)
+                delta = time.perf_counter() - start
+                camera_delay = time.time() - last_frame_time
                 if self.state !=last_state or movement != last_movement or last_counter != self.trigger_counter:
-                    logger.debug(f"state={self.state} movement={movement} counter={self.trigger_counter}")
+                    buffer_movement = self.buffer.motion_percent()
+                    logger.debug(f"state={self.state} movement={movement} counter={self.trigger_counter} buffer_motion_percent={buffer_movement:0.2f} time = {delta:0.4f} last_loop = {last_loop:0.4f}  camera-detector delay={camera_delay:0.4f}")
                 last_state, last_movement, last_counter = self.state, movement, self.trigger_counter
                 if self.state == self.STATE_IDLE:
                     self._handle_idle(movement, frame)
+                    last_loop = time.perf_counter() - start
                     continue
 
                 if self.state == self.STATE_TRIGGERED:
                     logger.info(f"Cooldown started for {self.cfg.cooldown_seconds} seconds")
                     self.state = self.STATE_COOLDOWN
                     self.cooldown_start = time.time()
+                    last_loop = time.perf_counter() - start
                     continue
 
                 if self.state == self.STATE_COOLDOWN:
                     self._handle_cooldown()
+                    last_loop = time.perf_counter() - start
                     continue
 
         except Exception as e:

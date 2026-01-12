@@ -25,7 +25,7 @@ class BirdWatcherApp:
         self.storage = StorageManager(cfg)
         self.telegram = TelegramNotifier(cfg)
         self.sound = SoundNotifier(cfg)
-        self.camera = CameraCapture(cfg)
+        # self.camera = CameraCapture(cfg)
 
         self.camera  =  RTSPCameraCapture(
             cfg,

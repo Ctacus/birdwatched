@@ -24,7 +24,7 @@ class CameraCapture(BaseCameraCapture):
         self.running = False
         # Circular buffer to store frames - max size to prevent memory issues
         # Set to 2x clip_seconds to ensure we have enough buffer
-        max_buffer_size = max(100, cfg.clip_seconds * cfg.fps * 2)
+        max_buffer_size = max(100, cfg.fps * 2)
         self.frame_buffer: Deque[np.ndarray] = collections.deque(maxlen=max_buffer_size)
         self.lock = threading.Lock()
 
@@ -63,4 +63,7 @@ class CameraCapture(BaseCameraCapture):
 
     def stop(self):
         self.running = False
+
+    def get_last_frame_time(self) -> float:
+        pass
 

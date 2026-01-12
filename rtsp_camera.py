@@ -69,6 +69,7 @@ class RTSPCameraCapture(BaseCameraCapture):
         self.frame: Optional[np.ndarray] = None
         self.lock = threading.Lock()
         self.connected = False
+        self.last_frame_time = None
         
     def _build_rtsp_url(self) -> str:
         """
@@ -199,7 +200,9 @@ class RTSPCameraCapture(BaseCameraCapture):
         
         while self.running:
             try:
+                start_time = time.perf_counter()
                 ret, frame = self.cap.read()
+                self.last_frame_time = time.time()
                 
                 if not ret or frame is None or frame.size == 0:
                     consecutive_failures += 1
@@ -235,10 +238,10 @@ class RTSPCameraCapture(BaseCameraCapture):
                 last_successful_frame_time = time.time()
                 with self.lock:
                     self.frame = frame.copy()
-                
-                # Control frame rate
-                time.sleep(1.0 / self.cfg.fps)
-                
+
+                delta_time = time.perf_counter() - start_time
+                # logger.debug(f"capture time: {delta_time:0.5f}")
+
             except Exception as e:
                 logger.error(f"Error during capture: {e}", exc_info=True)
                 consecutive_failures += 1
@@ -279,4 +282,7 @@ class RTSPCameraCapture(BaseCameraCapture):
     def is_connected(self) -> bool:
         """Check if currently connected to the stream."""
         return self.connected
+
+    def get_last_frame_time(self) -> float:
+        return self.last_frame_time
 

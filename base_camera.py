@@ -58,3 +58,7 @@ class BaseCameraCapture(threading.Thread, ABC):
         """
         pass
 
+    @abstractmethod
+    def get_last_frame_time(self) -> float:
+        pass
+
