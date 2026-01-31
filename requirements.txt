@@ -2,7 +2,10 @@ opencv-python
 requests
 numpy
 python-dotenv
-simpleaudio
+playsound3
+python-telegram-bot
+matplotlib
+pyqt5
 
 torch
 torchvision

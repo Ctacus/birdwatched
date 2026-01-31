@@ -6,7 +6,7 @@ import logging
 from typing import Optional
 
 import requests
-import simpleaudio as sa
+# import simpleaudio as sa
 
 # import asyncio
 # from play_sounds import play_file_async
@@ -62,14 +62,6 @@ class SoundNotifier:
     def __init__(self, cfg: AppConfig):
         self.cfg = cfg
 
-    def play_async(self) -> bool:
-        try:
-            wave_obj = sa.WaveObject.from_wave_file(self.cfg.alert_sound_path)
-            wave_obj.play()
-            return True
-        except Exception as e:
-            logger.error(f"Failed to play sound: {e}", exc_info=True)
-            return False
 
     def playsound(self) -> bool:
         try:

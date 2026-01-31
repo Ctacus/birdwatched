@@ -6,11 +6,13 @@ import collections
 import logging
 import threading
 import time
-from typing import Deque
+from typing import Deque, Optional
 from xmlrpc.client import Error
 
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
 from base_camera import BaseCameraCapture
 from config import AppConfig
@@ -19,15 +21,94 @@ from storage import StorageManager
 
 logger = logging.getLogger(__name__)
 
+def draw_plot(
+        values,
+        width=400,
+        height=200,
+        ymin=-0.2,
+        ymax=1.2,
+        color=(0, 255, 0)
+):
+    img = np.zeros((height, width, 3), dtype=np.uint8)
+
+    if len(values) < 2:
+        return img
+
+    vals = np.array(values, dtype=np.float32)
+
+    # normalize Y
+    vals = np.clip(vals, ymin, ymax)
+    vals = (vals - ymin) / (ymax - ymin)
+    vals = height - (vals * height)
+
+    # X coordinates
+    xs = np.linspace(0, width - 1, len(vals)).astype(np.int32)
+    pts = np.column_stack((xs, vals.astype(np.int32)))
+
+    cv2.polylines(img, [pts], isClosed=False, color=color, thickness=2)
+    return img
+
+
 class ClipBuffer:
     def __init__(self, fps: int, clip_seconds: int):
+        self.fps = fps  # Store fps for the weighting logic
+
         self.max_clip_length = clip_seconds * fps
         self.buffer: Deque[np.ndarray] = collections.deque(maxlen=self.max_clip_length + 120)
         self.motion_flags: Deque[float] = collections.deque(maxlen=self.buffer.maxlen)
+        self.motion_percent_log: Deque[float] = collections.deque(maxlen=self.buffer.maxlen)
         if self.buffer.maxlen <= self.max_clip_length:
             raise Error("Buffer must be at least 1 frame wider than clip")
         self.window_totals: Deque[float] = collections.deque(maxlen=self.buffer.maxlen - self.max_clip_length + 1)
         self.window_totals.append(0) # initial window total
+        self._average_frame: Optional[np.ndarray] = None
+        self.global_frame_count: int = 0
+
+
+
+    def debug_setup_plot(self):
+        fig, ax = plt.subplots()
+        line, = ax.plot([], [], lw=2)
+
+        ax.set_xlim(0, self.buffer.maxlen)
+        ax.set_ylim(-0.5, 1.5)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Value")
+
+        def update(frame):
+            data = self.motion_flags
+            # X axis = elapsed time
+            x = np.linspace(
+                0,
+                len(data)
+            )
+
+            line.set_data(x, list(data))
+            ax.set_xlim(x[0], x[-1])
+
+            return line,
+
+
+        ani = FuncAnimation(
+            fig,
+            update,
+            interval=33,  # ms
+            blit=True
+        )
+
+        plt.show()
+
+    def debug_output(self):
+        cv2.imshow("Live Average Frame", self.average_frame)
+        cv2.imshow("Current Frame", self.buffer[-1])
+        cv2.imshow("Activation", draw_plot(self.motion_flags, width=len(self.motion_flags) * 2))
+        cv2.imshow("Window Totals", draw_plot(self.window_totals, ymax=300, width=len(self.window_totals) * 2))
+
+        self.motion_percent_log.append(self.motion_percent())
+
+        cv2.imshow("Motion percent", draw_plot(self.motion_percent_log, width=len(self.motion_percent_log) * 2))
+
+        cv2.waitKey(1)
 
 
 
@@ -36,6 +117,7 @@ class ClipBuffer:
             logger.warning(f"Incorrect motion value: {motion}! (expected in range [0;1])")
             motion = 0
         self.buffer.append(frame)
+        self.global_frame_count += 1
         self.motion_flags.append(motion)
         if len(self.buffer) <= self.max_clip_length: # initial windows accumulation
             self.window_totals[0] += motion
@@ -44,7 +126,22 @@ class ClipBuffer:
             total_motion = self.window_totals[-1] + motion - self.motion_flags[dropped_motion_idx]
             self.window_totals.append(total_motion)
 
+        # Formula: New_Avg = (1 - w) * Old_Avg + w * New_Frame
+        weight = 1.0 / self.fps / self.fps
+
+        if self._average_frame is None:
+            # Initialize with the first frame (converted to float for precision)
+            self._average_frame = frame.astype(np.float32)
+        else:
+            # Update the running average
+            # Note: frame is cast to float32 to match the average buffer
+            self._average_frame = ((1.0 - weight) * self._average_frame) + (weight * frame.astype(np.float32))
+
+        self.debug_output()
+
+
         self.trim_start(2)
+
 
     def trim_start(self, frame_cnt: int, threshold: float=0.1):
         for _ in range(frame_cnt):
@@ -72,6 +169,10 @@ class ClipBuffer:
         idx = self.window_totals.index(best_windows_motion)
         return list(self.buffer)[idx:idx + self.max_clip_length]
 
+    @property
+    def average_frame(self) -> np.ndarray:
+        """Returns the current running average frame."""
+        return self._average_frame.astype(np.uint8)
 
 
 
@@ -113,6 +214,9 @@ class Detector(threading.Thread):
         self.lock = threading.Lock()
         self.cooldown_start = 0.0
         self.is_recording = False
+        # self.trigger_level = cfg.movement_level_required  # стандартный уровень срабатывания
+        # self.min_trigger_level = cfg.movement_level_required/2 # минимальный уровень срабатывания
+        # self.current_trigger_level = cfg.movement_level_required/2 # минимальный уровень срабатывания
 
     # --------------------------
     def _detect_movement(self, frame: np.ndarray) -> bool:
@@ -133,6 +237,7 @@ class Detector(threading.Thread):
         last_movement = False
         last_counter = 0
         last_loop = 0
+
         try:
             while True:
                 time.sleep(max(1.0 / self.cfg.fps - last_loop, 1.0 / self.cfg.fps /2))
@@ -146,6 +251,12 @@ class Detector(threading.Thread):
                     continue
                 movement = self._detect_movement(frame)
                 self.buffer.append(frame, movement)
+
+                # save average frame from buffer to avg/bird.jpg
+                if self.buffer.global_frame_count % 40000 == 0:
+                    logger.debug("saving average frame...")
+                    self.storage.save_image(self.buffer.average_frame, prefix="avg/bird")
+
                 delta = time.perf_counter() - start
                 camera_delay = time.time() - last_frame_time
                 if self.state !=last_state or movement != last_movement or last_counter != self.trigger_counter:
