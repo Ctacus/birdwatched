@@ -39,7 +39,8 @@ class BirdWatcherApp:
         weather_latitude = float(os.getenv("WEATHER_LATITUDE", "53.199821"))  # Default: Samara, Russia
         weather_longitude = float(os.getenv("WEATHER_LONGITUDE", "50.1302682"))
         enable_weather = bool(int(os.getenv("ENABLE_WEATHER", "1")))
-        
+        weather_interval = int(os.getenv("WEATHER_UPDATE_INTERVAL", "600"))
+
         # Set up filter chain
         filter_chain = FilterChain()
 
@@ -47,13 +48,11 @@ class BirdWatcherApp:
             # Initialize weather service (Open-Meteo API, no API key required)
             weather_service = WeatherService(
                 latitude=weather_latitude,
-                longitude=weather_longitude,
-                units="metric",
-                update_interval=300.0,  # 5 minutes
+                longitude=weather_longitude
             )
             weather_scheduler = WeatherScheduler(
                 weather_service=weather_service,
-                update_interval=300.0,  # 5 minutes
+                update_interval=weather_interval
             )
             
             # Create weather overlay filter (auto-positions to top right)

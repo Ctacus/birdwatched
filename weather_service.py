@@ -23,8 +23,7 @@ class WeatherService:
         self,
         latitude: float = 51.5074,  # Default: London
         longitude: float = -0.1278,
-        units: str = "metric",
-        update_interval: float = 300.0,  # 5 minutes in seconds
+        units: str = "metric"
     ):
         """
         Initialize weather service.
@@ -33,13 +32,11 @@ class WeatherService:
             latitude: Latitude coordinate (default: 51.5074 for London)
             longitude: Longitude coordinate (default: -0.1278 for London)
             units: Temperature units ("metric" for Celsius, "imperial" for Fahrenheit)
-            update_interval: How often to update weather data (seconds)
         """
         self.latitude = latitude
         self.longitude = longitude
         self.units = units
-        self.update_interval = update_interval
-        
+
         self._temperature: Optional[float] = None
         self._description: Optional[str] = None
         self._last_update: float = 0.0
@@ -81,10 +78,6 @@ class WeatherService:
         current_time = time.time()
         
         with self._lock:
-            # Check if we need to update
-            if current_time - self._last_update < self.update_interval:
-                return self._temperature is not None
-            
             # Fetch new data
             data = self._fetch_weather()
             if data:
@@ -128,7 +121,7 @@ class WeatherService:
         if temp is not None:
             unit = "C" if self.units == "metric" else "F"
             return f"{temp:.0f}{unit}"
-        return "N/A"
+        return ""
     
     def set_location(self, latitude: float, longitude: float):
         """Update location coordinates and reset cache."""
