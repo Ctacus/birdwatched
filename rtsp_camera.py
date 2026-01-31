@@ -36,7 +36,8 @@ class RTSPCameraCapture(BaseCameraCapture):
         reconnect_delay: float = 5.0, 
         max_reconnect_attempts: int = -1,
         use_ffmpeg_backend: bool = True,
-        rtsp_transport: str = "tcp"
+        rtsp_transport: str = "tcp",
+        filter_chain=None,
     ):
         """
         Initialize RTSP camera capture.
@@ -48,8 +49,9 @@ class RTSPCameraCapture(BaseCameraCapture):
             max_reconnect_attempts: Maximum reconnection attempts (-1 for infinite, default: -1)
             use_ffmpeg_backend: Use FFMPEG backend for better RTSP support (default: True)
             rtsp_transport: RTSP transport protocol - "tcp" or "udp" (default: "tcp")
+            filter_chain: Optional FilterChain instance to apply to frames
         """
-        super().__init__(cfg)
+        super().__init__(cfg, filter_chain=filter_chain)
         self.rtsp_url = rtsp_url or (cfg.camera_source if isinstance(cfg.camera_source, str) else None)
         if not self.rtsp_url:
             raise ValueError("RTSP URL must be provided either as rtsp_url parameter or in cfg.camera_source")
@@ -236,6 +238,11 @@ class RTSPCameraCapture(BaseCameraCapture):
                 # Successful frame read
                 consecutive_failures = 0
                 last_successful_frame_time = time.time()
+                
+                # Apply filter chain if provided
+                if self.filter_chain:
+                    frame = self.filter_chain.apply(frame)
+                
                 with self.lock:
                     self.frame = frame.copy()
 

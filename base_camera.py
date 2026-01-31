@@ -22,16 +22,18 @@ class BaseCameraCapture(threading.Thread, ABC):
     must follow, allowing the Detector to work with any camera type.
     """
     
-    def __init__(self, cfg: AppConfig):
+    def __init__(self, cfg: AppConfig, filter_chain=None):
         """
         Initialize the base camera capture.
         
         Args:
             cfg: Application configuration
+            filter_chain: Optional FilterChain instance to apply to frames
         """
         super().__init__(daemon=True)
         self.cfg = cfg
         self.running = False
+        self.filter_chain = filter_chain
     
     @abstractmethod
     def get_frame(self) -> Optional[np.ndarray]:

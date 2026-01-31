@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 class CameraCapture(BaseCameraCapture):
-    def __init__(self, cfg: AppConfig):
-        super().__init__(cfg)
+    def __init__(self, cfg: AppConfig, filter_chain=None):
+        super().__init__(cfg, filter_chain=filter_chain)
         self.cap = None
         self.running = False
         # Circular buffer to store frames - max size to prevent memory issues
@@ -39,6 +39,10 @@ class CameraCapture(BaseCameraCapture):
                 logger.warning("Frame not read, sleeping briefly...")
                 time.sleep(0.1)
                 continue
+            # Apply filter chain if provided
+            if self.filter_chain:
+                frame = self.filter_chain.apply(frame)
+            
             with self.lock:
                 # Add new frame to the circular buffer
                 self.frame_buffer.append(frame.copy())
