@@ -56,6 +56,7 @@ class WeatherService:
                 "forecast_hours": 1,
             }
             
+            logger.debug(f"Fetching weather data for {self.latitude}, {self.longitude}")
             response = requests.get(self.API_BASE_URL, params=params, timeout=30)
             response.raise_for_status()
             
@@ -76,6 +77,7 @@ class WeatherService:
             True if update was successful, False otherwise
         """
         current_time = time.time()
+        logger.debug(f"Updating weather data...")
         
         with self._lock:
             # Fetch new data
@@ -101,8 +103,7 @@ class WeatherService:
     
     def get_temperature(self) -> Optional[float]:
         """Get current temperature."""
-        with self._lock:
-            return self._temperature
+        return self._temperature
     
     def get_description(self) -> Optional[str]:
         """Get current weather description."""
@@ -164,9 +165,7 @@ class WeatherScheduler:
         self._thread.start()
         logger.info(f"Weather scheduler started (update interval: {self.update_interval}s)")
         
-        # Do initial update
-        self.weather_service.update()
-    
+
     def stop(self):
         """Stop the scheduler thread."""
         self.running = False
@@ -176,8 +175,7 @@ class WeatherScheduler:
     
     def _run(self):
         """Main scheduler loop."""
-        while self.running:
+        while self.running:            
+            self.weather_service.update()
             time.sleep(self.update_interval)
-            if self.running:
-                self.weather_service.update()
 
