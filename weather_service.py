@@ -56,7 +56,7 @@ class WeatherService:
                 "forecast_hours": 1,
             }
             
-            response = requests.get(self.API_BASE_URL, params=params, timeout=5)
+            response = requests.get(self.API_BASE_URL, params=params, timeout=30)
             response.raise_for_status()
             
             data = response.json()
